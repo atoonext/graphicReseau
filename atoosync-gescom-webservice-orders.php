@@ -766,7 +766,7 @@ class AtooSyncOrders
                 $cmsOrderProduct->unit_final_price_tax = ($final_price_wt - $final_price);
                 $cmsOrderProduct->tax_name = $tax_name;
                 $cmsOrderProduct->tax_key = $id_tax;
-                $cmsOrderProduct->tax_rate = $product['tax_rate'];
+                $cmsOrderProduct->tax_rate = $rate_tax;
                 $cmsOrderProduct->unit_reduction_amount = $product['discount_amount'];
                 $cmsOrderProduct->unit_reduction_percent = $product['discount_percent'];
                 $cmsOrderProduct->unit_ecotax = $product['weee_tax_applied_amount'];
