@@ -27,11 +27,6 @@ header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
 header("Cache-Control: no-store, no-cache, must-revalidate");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
-
-/*
-@ini_set('display_errors', 'on');
-@error_reporting(E_ALL | E_STRICT);
-*/
 // Script requis
 require_once 'atoosync-gescom-webservice-configuration.php';
 require_once 'atoosync-gescom-webservice-products.php';
@@ -80,6 +75,13 @@ $registry = $objectManager->get('Magento\Framework\Registry');
 // si aucun argument
 if (!AtooSyncGesComTools::getIsset('cmd')) {
     exit;
+}
+
+//Activation du mode débug
+if (AtooSyncGesComTools::getConfig('atoosync_others_settings','debug_mode','debug_mode') =='1') {
+    @ini_set('display_errors', 'on');
+    @error_reporting(E_ALL | E_STRICT);
+
 }
 
 // vérifie si le module Atoo-Sync est installé
@@ -134,6 +136,12 @@ exit;
  */
 function Dispatcher()
 {
+    global $objectManager;
+
+    /** @var \Magento\Store\Model\App\Emulation $emulation */
+    $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+
+    $emulation->startEnvironmentEmulation(0, \Magento\Framework\App\Area::AREA_FRONTEND, true);
     $result= true;
 
     switch (AtooSyncGesComTools::getValue('cmd')) {
@@ -173,7 +181,7 @@ function Dispatcher()
     if ($result) {
         $result = AtooSyncCustomerGroups::dispatcher();
     }
-    
+
     if ($result) {
         $result = AtooSyncDocuments::dispatcher();
     }

@@ -33,6 +33,7 @@ use AtooNext\AtooSync\Cms\Configuration\CmsConfigurationSupplier;
 use AtooNext\AtooSync\Cms\Configuration\CmsConfigurationTax;
 use AtooNext\AtooSync\Cms\Configuration\CmsConfigurationTaxRule;
 use AtooNext\AtooSync\Cms\Configuration\CmsConfigurationZone;
+use Magento\Eav\Model\Entity\TypeFactory;
 
 class AtooSyncConfiguration
 {
@@ -115,6 +116,7 @@ class AtooSyncConfiguration
             $localeForAllStores[$store->getStoreId()]['code'] = $scopeConfig->getValue('general/locale/code', 'stores', $store->getStoreId());
             $localeForAllStores[$store->getStoreId()]['label'] = $scopeConfig->getValue('general/locale/code', 'stores', $store->getStoreId());
             $label = $scopeConfig->getValue('general/locale/code', 'stores', $store->getStoreId());
+            $localeForAllStores[$store->getStoreId()]['shop_name'] =  $store->getName();
             if (isset($langues[$label])) {
                 $localeForAllStores[$store->getStoreId()]['label'] = $langues[$label];
             }
@@ -129,7 +131,7 @@ class AtooSyncConfiguration
             $language = new CmsConfigurationLanguage();
             $language->code = (string)$id_shop;
             $language->isocode = (string)$usedLang['code'];
-            $language->name = (string)$usedLang['label'];
+            $language->name = (string)$id_shop.'_'.(string)$usedLang['shop_name'];
             $language->default = $deflang;
 
             $ATSCConfigurationLanguages[] = $language;
@@ -321,7 +323,6 @@ class AtooSyncConfiguration
         // les devises dans la boutique
         $shipping = $objectManager->create('\Magento\Shipping\Model\Config\Source\Allmethods');
         $shippings = $shipping->toOptionArray();
-
         foreach ($shippings as $shipping) {
             if (is_array($shipping['value'])) {
                 foreach ($shipping['value'] as $carrier_row) {
@@ -332,6 +333,7 @@ class AtooSyncConfiguration
                 }
             }
         }
+        
         return $ATSCConfigurationCarriers;
     }
     /*
@@ -452,28 +454,30 @@ class AtooSyncConfiguration
         $connection= $resource->getConnection();
         $tableTax = $resource->getTableName('eav_attribute');
 
+            /** @var TypeFactory $entityType */
+            $entityType = $objectManager->get('\Magento\Eav\Model\Entity\TypeFactory');
+            $entityType = $entityType->create()->loadByCode('catalog_product');  
+        
         // les attribut dans la boutique
         $attribute = $objectManager->get('\Magento\Catalog\Model\ResourceModel\Eav\Attribute');
-        $attributeInfo = $attribute->getCollection();
-        $attributeInfo->addFieldToFilter('entity_type_id', 4);
-        $attributeInfo->addFieldToFilter('is_user_defined', 1);
-        $attributeInfo->addFieldToFilter('backend_type', ['varchar']);
-        $attributeInfo->setOrder('attribute_code');
-
+        $attributeInfo = $attribute->getCollection()
+            ->addFieldToFilter('entity_type_id', $entityType->getId())
+            ->addFieldToFilter('is_user_defined', 1)
+            //->addFieldToFilter('backend_type', ['varchar','int','text'])
+            ->setOrder('frontend_label', 'ASC');
+            
         foreach ($attributeInfo as $attributes) {
-            //je ne séléctionne que les attribut affectés aux produits
-            $sql = 'SELECT `attribute_code` FROM `' . $tableTax . '` WHERE `entity_type_id`="4" AND `is_user_defined` = 1 AND `attribute_code` ="' . (string)$attributes->getAttributeCode() . '"';
-            $result = $connection->fetchAll($sql);
-            //si j'ai un resultat affecté aux produit, et si j'ai un label
-            if (!empty($result) && !empty($attributes->getData()['frontend_label'])) {
-                $productFeature = new CmsConfigurationProductFeature();
-                $productFeature->code = $attributes->getData()['attribute_id'];
-                $productFeature->name = $attributes->getData()['frontend_label'];
-
-                $ATSCConfigurationProductFeatures[] = $productFeature;
+            $required = '';
+            if ($attributes->getData()['is_required'] == 1) {
+                $required = '*';
             }
+            $productFeature = new CmsConfigurationProductFeature();
+            $productFeature->code = $attributes->getData()['attribute_id'];
+            $productFeature->name = $attributes->getData()['frontend_label'].$required.' - ('.$attributes->getData()['frontend_input'].')';
 
-            return $ATSCConfigurationProductFeatures;
+            $ATSCConfigurationProductFeatures[] = $productFeature;
+
         }
+        return $ATSCConfigurationProductFeatures;
     }
 }

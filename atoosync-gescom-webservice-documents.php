@@ -68,7 +68,7 @@ class AtooSyncDocuments
      */
     private static function productDocumentExist($reference, $atoosync_key)
     {
-        $retval=false;
+        $retval=true;
 
         return $retval;
     }
@@ -91,7 +91,7 @@ class AtooSyncDocuments
      */
     private static function createProductDocument($xml)
     {
-        $result = false;
+        $result = true;
         return $result;
     }
 
@@ -139,7 +139,7 @@ class AtooSyncDocuments
                 $vardirectory->delete($filename);
             }
 
-            if ($vardirectory->writeFile($filename, $erpSalesDocument->documentdata) > 0) {
+            if ($vardirectory->writeFile($filename, $erpSalesDocument->documentpdf) > 0) {
                 $connection= $resource->getConnection();
 
                 $orderTableName = $resource->getTableName('atoosync_orders_documents');
