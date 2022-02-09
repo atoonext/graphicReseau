@@ -57,8 +57,8 @@ function _customizeProduct($erpProduct) {
         $productRepo = $objectManager->create('Magento\Catalog\Model\ProductRepository');
         /** @var Attribute $eavModel */
         $eavModel = $objectManager->create('Magento\Catalog\Model\ResourceModel\Eav\Attribute');
-        $product = $productRepo->getById($product_id);
-        $product->setWebsiteIds($websites);
+        $product = $productRepo->getById($product_id, false, 0);
+        $product->setWebsiteIds(array(1));
         $stores = $StoreRepository->getList();
         $sqlSubstitute = "SELECT `entity_id` FROM " . $tableName." WHERE `sku` = '".(string)$erpProduct->substitute_product_key."';";
         $substitute_id = (int)$connection->fetchOne($sqlSubstitute);
@@ -235,7 +235,7 @@ function _customizeCreateCustomer($erpCustomer) {
             }
         }
 
-        $customer = @$CustomerRepository->getById($customer_id);
+        $customer = @$CustomerRepository->getById($customer_id, false, 0);
 
         if ($customer->getId()) {
             $CustomerRepository->save($customer);
@@ -346,7 +346,7 @@ function _customizeProductPrice($erpProductPrice) {
     $objectManager = ObjectManager::getInstance();
     /** @var ResourceConnection $resource */
     $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
-    /** @var StoreManagerInterface $storeManager */
+    /** @var \Magento\Store\Model\StoreManagerInterface $storeManager */
     $storeManager = $objectManager->get('\Magento\Store\Model\StoreManagerInterface');
     /** @var Attribute $eavModel */
     $eavModel = $objectManager->create('Magento\Catalog\Model\ResourceModel\Eav\Attribute');
@@ -381,13 +381,13 @@ function _customizeProductPrice($erpProductPrice) {
                 WHERE `entity_id` = ' . $row['entity_id'];
 
             $connection->query($sql);
-            $product = $productRepo->getById($row['entity_id']);
+            $product = $productRepo->getById($row['entity_id'], false, 0);
 
-            $product->setWebsiteIds($websites);
+            $product->setWebsiteIds(array(1));
             $stores = $StoreRepository->getList();
             foreach ($stores as $storeRow) {
                 if (in_array($storeRow["website_id"], $websites)) {
-                    $product->setStoreId($storeRow["store_id"]);
+//                    $product->setStoreId($storeRow["store_id"]);
 
                     if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "price")==1) {
                         $product->setPrice((float)$erpProductPrice->regular_price_tax_exclude);
@@ -473,7 +473,7 @@ function _customizeProductPrice($erpProductPrice) {
                         } else {
                             $price= (float)$erpProductPrice->price;
                         }
-                        $product = $productRepo->getById($row['entity_id']);
+                        $product = $productRepo->getById($row['entity_id'], false, 0);
                         if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "price")==1) {
                             $product->setPrice((float)$price);
                             $product->setSpecialPrice((float)$specialPrice);
@@ -668,7 +668,7 @@ function _customizeOrderProductReference($order, $product_detail) {
     $product_id = (int)$connection->fetchOne($sql);;
 
     if($product_id > 0 ){
-        $product = $productRepo->getById($product_id);
+        $product = $productRepo->getById($product_id, false, 0);
         return $product->getSku();
     }
     return '';
@@ -694,7 +694,7 @@ function _customizeProductQuantity($erpProductStock) {
     $products_id = (array)$connection->fetchall($sql);
     if ($products_id) {
         foreach ($products_id as $row) {
-            $product = $productRepo->getById($row['entity_id']);
+            $product = $productRepo->getById($row['entity_id'], false, 0);
 
             if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "ean_upc")==1) {
                 if ((int)AtooSyncGesComTools::getConfig("atoosync_attributes", "product", "ean_upc") != 0) {
@@ -728,7 +728,7 @@ function _customizeProductQuantity($erpProductStock) {
             $products_id = (array)$connection->fetchall($sql);
             if ($products_id) {
                 foreach ($products_id as $row) {
-                    $product = $productRepo->getById($row['entity_id']);
+                    $product = $productRepo->getById($row['entity_id'], false, 0);
 
                     if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "ean_upc")==1) {
                         if ((int)AtooSyncGesComTools::getConfig("atoosync_attributes", "product", "ean_upc") != 0) {
@@ -758,4 +758,16 @@ function _customizeProductQuantity($erpProductStock) {
     }
 
     return $success;
+}
+
+/**
+ * Fonction permettant de personnaliser la modification du numéro de transport de la commande
+ *
+ * @param string $order_key La clé de la commande dans le CMS
+ * @param string $shipping_number
+ * @return bool
+ */
+function _customizeSetOrderShippingNumber($order_key, $shipping_number)
+{
+    return true;
 }

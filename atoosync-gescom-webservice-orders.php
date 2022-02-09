@@ -688,7 +688,7 @@ class AtooSyncOrders
                     $reference = $product['sku'];
                 }
                 try {
-                    $productBase = $productRepo->getById($product['product_id']);
+                    $productBase = $productRepo->getById($product['product_id'], false, 0);
                     $productBaseData = $productBase->getData();
                     // si pas de customisation alors essaye de trouver la référence depuis l'article ou la ligne de commande
                     if (empty($reference)) {
@@ -728,7 +728,7 @@ class AtooSyncOrders
                 $childproduct_id = (int)$connection->fetchOne($sql);
                 if ($childproduct_id > 0) {
                     try {
-                        $productchild = $productRepo->getById($childproduct_id);
+                        $productchild = $productRepo->getById($childproduct_id, false, 0);
                         $attribute_reference = $productchild->getSku();
                         $data = $productchild->getData();
                         $atoosync_gamme_key = $data['atoosync_gamme_key'];
@@ -943,6 +943,10 @@ class AtooSyncOrders
    */
     private static function setOrderShippingNumber($id_order, $shipping_number)
     {
+        if (customizeSetOrderShippingNumber($id_order, $shipping_number)) {
+            return true;
+        }
+
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
         /** @var ResourceConnection $resource */

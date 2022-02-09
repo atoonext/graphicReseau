@@ -107,8 +107,8 @@ class AtooSyncProducts
         $products_id = (array)$connection->fetchAll($sql);
         if ($products_id) {
             foreach ($products_id as $row) {
-                $product = $productRepo->getById($row['entity_id']);
-                $product->setWebsiteIds($websites);
+                $product = $productRepo->getById($row['entity_id'], false, 0);
+                $product->setWebsiteIds(array(1));
                 if ($state == 0) {
                     $product->setStatus(2); // Attribute set id
                     // le produit est mis en sommeil
@@ -242,7 +242,7 @@ class AtooSyncProducts
             $product->setData('meta_keyword',(string)$erpProduct->meta_keywords);
             $product->setData('meta_title',(string)$erpProduct->meta_title);
             $product->setData('url_key',(string)$erpProduct->link_rewrite);
-            $product->setWebsiteId($websiteId);
+            $product->setWebsiteIds(array(1));
             $product->setShortDescription((string)$erpProduct->description_short);
             $product->setDescription((string)$erpProduct->description);
 
@@ -275,6 +275,7 @@ class AtooSyncProducts
             }
 
             $product->save();
+            die;
             $product_id=$product->getId();
             $newProduct = true;
 
@@ -298,7 +299,7 @@ class AtooSyncProducts
 
             // associe l'article à la catégorie configurée dans les options ==> globale sur le site
             if ((int)AtooSyncGesComTools::getConfig("atoosync_products", "update", "category")==1 || $newProduct) {
-                $productCategorised = $productRepo->getById($product_id);
+                $productCategorised = $productRepo->getById($product_id, false, 0);
 
                 /** @var CategoryLinkManagementInterface $categoryLinkManagementInterface */
                 $categoryLinkManagementInterface = $objectManager->get('\Magento\Catalog\Api\CategoryLinkManagementInterface');
@@ -306,7 +307,6 @@ class AtooSyncProducts
                 $categoryLinkrepository = $objectManager->get('Magento\Catalog\Model\CategoryLinkRepository');
                 $categoryLinkRepository = $objectManager->get(CategoryLinkRepository::class);
 
-                print_r($productCategorised->getCategoryIds());
                 foreach($productCategorised->getCategoryIds() as $categoryAssigned){
                     $categoryLinkrepository->deleteByIds($categoryAssigned, (string)$erpProduct->reference);
                     //$categoryLinkrepository->save();
@@ -329,7 +329,7 @@ class AtooSyncProducts
                     $categoryLinkManagementInterface->assignProductToCategories($erpProduct->reference, $cat_ids);
 
                 }
-                $product = $productRepobis->getById($product_id);
+                $product = $productRepobis->getById($product_id, false, 0);
                 //$product->setWebsiteIds($websites);
                 $product->save();
             }
@@ -340,15 +340,13 @@ class AtooSyncProducts
                 $langbyshop[$erpProductLanguage->language_key] = $erpProductLanguage;
             }
             //réinitiallisation du répo pour éviter de potentiel soucis de cache
-            $product = $productRepo->getById($product_id);
-
+            $product = $productRepo->getById($product_id, false, 0);
 
             foreach ($stores as $storeRow) {
-
-                $product->setWebsiteIds($websites);
+                $product->setWebsiteIds(array(1));
                 if(in_array($storeRow["website_id"], $websites)){
                     $product = $productRepo->getById($product_id,false,$storeRow["store_id"]);
-                    $product->setWebsiteIds($websites);
+                    $product->setWebsiteIds(array(1));
                     //$product->setStoreId($storeRow["store_id"]);
                     //modification du statut en cas de nouveau produit
                     if($newProduct){
@@ -359,7 +357,7 @@ class AtooSyncProducts
                         }
                     }
                     //modification du nom
-                    if(!empty($storeRow["store_id"])){
+                    if(isset($storeRow["store_id"])){
                         if(AtooSyncGesComTools::getConfig("atoosync_products", "update", "name")==1 or $newProduct == true){
                             $product->setName((string)$langbyshop[$storeRow["store_id"]]->name);
                             if($langbyshop[$storeRow["store_id"]]->link_rewrite == ""){
@@ -553,7 +551,7 @@ class AtooSyncProducts
         $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
         /** @var ProductRepository $productRepo */
         $productRepo = $objectManager->create('Magento\Catalog\Model\ProductRepository');
-        $product = $productRepo->getById($product_id);
+        $product = $productRepo->getById($product_id, false, 0);
         $connection= $resource->getConnection();
         /** @var StoreManagerInterface $storeManager */
         $storeManager = $objectManager->get('\Magento\Store\Model\StoreManagerInterface');
@@ -577,11 +575,11 @@ class AtooSyncProducts
                 WHERE `entity_id` = ' . $product_id;
         $connection->query($sql);
         $tierPrices=[];
-        $product->setWebsiteIds($websites);
+        $product->setWebsiteIds(array(1));
         $stores = $StoreRepository->getList();
         foreach ($stores as $storeRow) {
             if (in_array($storeRow["website_id"], $websites)) {
-                $product->setStoreId($storeRow["store_id"]);
+//                $product->setStoreId($storeRow["store_id"]);
                 foreach ($erpProduct->specificPrices as $specificPrice) {
                     // je retrouve le groupe du prix spécifique ==> en version de base je ne gere pas le prix par client
                     if (!empty((string)$specificPrice->erp_customer_group_key)) {
@@ -717,19 +715,19 @@ class AtooSyncProducts
 //                    $websites = $websiteIds;
 //                }
 //                $websites = array_unique($websites);
-                $websites = array(0);
+                $websites = array(1);
                 $store = $storeManager->getStore();  // Get Store ID
                 $sql = 'DELETE FROM `catalog_product_entity_tier_price`
                 WHERE `entity_id` = ' . $row['entity_id'];
 
                 $connection->query($sql);
-                $product = $productRepo->getById($row['entity_id']);
+                $product = $productRepo->getById($row['entity_id'], false, 0);
 
-                $product->setWebsiteIds($websites);
+                $product->setWebsiteIds(array(1));
                 $stores = $StoreRepository->getList();
                 foreach ($stores as $storeRow) {
                     if (in_array($storeRow["website_id"], $websites)) {
-                        $product->setStoreId($storeRow["store_id"]);
+//                        $product->setStoreId($storeRow["store_id"]);
 
                         if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "price")==1) {
                             if(AtooSyncGesComTools::getConfig("tax", "calculation", "price_includes_tax")==1){
@@ -828,7 +826,7 @@ class AtooSyncProducts
                             } else {
                                 $price= (float)$erpProductPrice->price;
                             }
-                            $product = $productRepo->getById($row['entity_id']);
+                            $product = $productRepo->getById($row['entity_id'], false, 0);
                             if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "price")==1) {
                                 $product->setPrice((float)$price);
                                 $product->setSpecialPrice((float)$price);
@@ -907,7 +905,7 @@ class AtooSyncProducts
         $products_id = (array)$connection->fetchall($sql);
         if ($products_id) {
             foreach ($products_id as $row) {
-                $product = $productRepo->getById($row['entity_id']);
+                $product = $productRepo->getById($row['entity_id'], false, 0);
 
                 if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "ean_upc")==1) {
                     if ((int)AtooSyncGesComTools::getConfig("atoosync_attributes", "product", "ean_upc") != 0) {
@@ -945,7 +943,7 @@ class AtooSyncProducts
                 $products_id = (array)$connection->fetchall($sql);
                 if ($products_id) {
                     foreach ($products_id as $row) {
-                        $product = $productRepo->getById($row['entity_id']);
+                        $product = $productRepo->getById($row['entity_id'], false, 0);
 
                         if (AtooSyncGesComTools::getConfig("atoosync_products", "update", "ean_upc")==1) {
                             if ((int)AtooSyncGesComTools::getConfig("atoosync_attributes", "product", "ean_upc") != 0) {
@@ -1038,7 +1036,7 @@ class AtooSyncProducts
         }
 
         if ($product_id > 0) {
-            $main_product = $productRepo->getById($product_id);
+            $main_product = $productRepo->getById($product_id, false, 0);
             $main_product->setTypeId('configurable');
             $main_product->save();
 
@@ -1233,9 +1231,9 @@ class AtooSyncProducts
 
                             // ajout la référence  dans le tableau des articles des gammes
 
-                            $product = $productRepo->getById($product_id);
-                            $product->setWebsiteIds($websites);
-                            $product->setStoreId($storeRow["store_id"]);
+                            $product = $productRepo->getById($product_id, false, 0);
+                            $product->setWebsiteIds(array(1));
+//                            $product->setStoreId($storeRow["store_id"]);
                             $product->save();
                         }
                     }
@@ -1374,7 +1372,7 @@ class AtooSyncProducts
                     AND `entity_id` NOT IN(" . $linkedString . ") ;";
             $rows=$connection->fetchAll($sql_combinaison);
             foreach ($rows as $row) {
-                $product = $productRepo->getById($row['entity_id']);
+                $product = $productRepo->getById($row['entity_id'], false, 0);
                 $product->delete();
             }
         }
@@ -1768,9 +1766,9 @@ class AtooSyncProducts
             $stores = $StoreRepository->getList();
             foreach ($stores as $storeRow) {
                 if (in_array($storeRow["website_id"], $websites)) {
-                    $product = $productRepo->getById($product_id);
-                    $product->setWebsiteIds($websites);
-                    $product->setStoreId($storeRow["store_id"]);
+                    $product = $productRepo->getById($product_id, false, 0);
+                    $product->setWebsiteIds(array(1));
+//                    $product->setStoreId($storeRow["store_id"]);
                     $product->save();
                 }
             }
@@ -1870,7 +1868,7 @@ class AtooSyncProducts
         $sql = "SELECT `entity_id` FROM " . $ProductTableName . " WHERE `sku` = '" . (string)$erpProduct->variation_reference . "'";
         $main_product_id = (int)$connection->fetchOne($sql);
         if ($main_product_id != 0) {
-            $main_product = $productRepo->getById($main_product_id);
+            $main_product = $productRepo->getById($main_product_id, false, 0);
             $extensionConfigurableAttributes = $main_product->getExtensionAttributes();
 
             $producOption= [];
@@ -1954,7 +1952,7 @@ function findProductCategoriesId($erpProduct){
     //initialisation du retour
     $categoryIds = [];
 
-    $store = $storeManager->getStore();  // Get Store ID
+    $store = $storeManager->getStore(3);  // Get Store ID
     $rootNodeId = $store->getRootCategoryId();
 
     /// Get Root Category
