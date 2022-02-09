@@ -29,6 +29,7 @@ use AtooNext\AtooSync\Cms\Order\CmsOrderProduct;
 use AtooNext\AtooSync\Erp\Order\ErpOrderDeliveries;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\App\ResourceConnection;
+use Magento\Shipping\Model\Config\Source\Allmethods;
 
 class AtooSyncOrders
 {
@@ -101,7 +102,7 @@ class AtooSyncOrders
         //$connection= $resource->getConnection();
         $tableNameOrder = $resource->getTableName('sales_order');
         $connection= $resource->getConnection();
-    
+
         /** @var CmsOrder[] $cmsOrders */
         $cmsOrders = customizeGetCmsOrders($from, $to, $status, $shops, $reload, $all);
         if (empty($cmsOrders)) {
@@ -137,6 +138,7 @@ class AtooSyncOrders
 
             /* tri */
             $query .= " ORDER BY `created_at`, `entity_id`";
+
             $orders = $connection->fetchAll($query);
 
             // modifie l'entete selon la configuration.
@@ -161,6 +163,7 @@ class AtooSyncOrders
                 }
             }
             $xml .= "</orders>";
+
             header("Content-type: text/xml");
         }
 
@@ -299,7 +302,7 @@ class AtooSyncOrders
             $cmsOrder->discounts = self::getDiscounts($order);
             $cmsOrder->payments = self::getPayments($order);
             $cmsOrder->products = self::getProducts($order);
-    
+
             /** Customise l'objet de la commande si besoin */
             customizeCmsOrder($cmsOrder, $order->getEntityId());
             return $cmsOrder->getXML();
@@ -313,6 +316,11 @@ class AtooSyncOrders
     **/
     public static function getShippingDetails($order)
     {
+         global $objectManager;
+         // les devises dans la boutique
+        $shippingSource = $objectManager->create('\Magento\Shipping\Model\Config\Source\Allmethods');
+        $shippingsSource = $shippingSource->toOptionArray();
+
 
         //$shipping_taxrate=0;
         $orderData = $order->getData();
@@ -325,14 +333,23 @@ class AtooSyncOrders
         if ((float)$shipping_wt > (float)$shipping) {
             $shipping_taxrate = (100 / $orderData['shipping_amount']) * ($orderData['shipping_incl_tax'] - $orderData['shipping_amount']);
         }
+        $shippingName = "";
+         foreach ($shippingsSource as $shippingArray) {
+            if (is_array($shippingArray['value'])) {
+                foreach ($shippingArray['value'] as $carrier_row) {
+                    if($carrier_row['value'] == $order->getShippingMethod()){
+                        $shippingName = $carrier_row['label'];
+                    }
+                }
+            }
+        }
 
         //$carrier_name ='';
         $shipping_tax_name ='';
         //$id_carrier =0;
-
         $shippingDetails = [];
         $shippingDetails['id_carrier'] = $order->getShippingMethod();
-        $shippingDetails['carrier_name'] = $order->getShippingName(); // vide dans WooCommerce
+        $shippingDetails['carrier_name'] = $shippingName; // vide dans WooCommerce
         $shippingDetails['shipping_tax_name'] = $shipping_tax_name;
         $shippingDetails['shipping_tax_excl'] = $orderData['shipping_amount'];
         $shippingDetails['shipping_tax_rate'] = $shipping_taxrate;
@@ -341,7 +358,7 @@ class AtooSyncOrders
         $shippingDetails['shipping_discount_tax_incl'] = $orderData['shipping_discount_amount'];
         $shippingDetails['shipping_final_tax_excl'] = $shipping;
         $shippingDetails['shipping_final_tax_incl'] =  $shipping_wt;
-    
+
         return $shippingDetails;
     }
 
@@ -377,7 +394,6 @@ class AtooSyncOrders
     {
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
-
 
         $CustomerRepository = $objectManager->get('\Magento\Customer\Api\CustomerRepositoryInterface');
         $subsciberRepo = $objectManager->get('\Magento\Newsletter\Model\Subscriber');
@@ -415,6 +431,8 @@ class AtooSyncOrders
             $cmsOrderCustomer->civility = $civility;
             $cmsOrderCustomer->birthday = $customer->getDob();
             $cmsOrderCustomer->newsletter = $newsletter;
+            $invoiceAddress = self::getInvoiceAddress($order);
+            $cmsOrderCustomer->vat_number = $invoiceAddress->vat_number;
         } else {
             $addressBilling = $order->getBillingAddress();
             $address_data_B = $addressBilling->getData();
@@ -459,10 +477,13 @@ class AtooSyncOrders
 
         $cmsOrderAddress = new CmsOrderAddress();
         $cmsOrderAddress->name =$address_data_S['address_type'];
+        $cmsOrderAddress->company =$address_data_S['company'];
         $cmsOrderAddress->civility = $civility;
         $cmsOrderAddress->lastname = $address_data_S['lastname'];
         $cmsOrderAddress->firstname = $address_data_S['firstname'];
-        $cmsOrderAddress->address1 = $address_data_S['street'];
+        $cmsOrderAddress->address1 = $addressShipping->getStreetLine(1);
+        $cmsOrderAddress->address2 = $addressShipping->getStreetLine(2);
+        $cmsOrderAddress->address3 = $addressShipping->getStreetLine(3);
         $cmsOrderAddress->postcode = $address_data_S['postcode'];
         $cmsOrderAddress->city = $address_data_S['city'];
         $cmsOrderAddress->state = $addressShipping->getRegion();
@@ -512,8 +533,11 @@ class AtooSyncOrders
         $cmsOrderAddress->name =$address_data_B['address_type'];
         $cmsOrderAddress->civility = $civility;
         $cmsOrderAddress->lastname = $address_data_B['lastname'];
+        $cmsOrderAddress->company =$address_data_B['company'];
         $cmsOrderAddress->firstname = $address_data_B['firstname'];
-        $cmsOrderAddress->address1 = $address_data_B['street'];
+        $cmsOrderAddress->address1 = $addressBilling->getStreetLine(1);
+        $cmsOrderAddress->address2 = $addressBilling->getStreetLine(2);
+        $cmsOrderAddress->address3 = $addressBilling->getStreetLine(3);
         $cmsOrderAddress->postcode = $address_data_B['postcode'];
         $cmsOrderAddress->city = $address_data_B['city'];
         $cmsOrderAddress->state = $addressBilling->getRegion();
@@ -546,7 +570,7 @@ class AtooSyncOrders
         $cmsOrderPayment->currency_key = $orderData['order_currency_code'];
         $cmsOrderPayment->currency_rate = $orderData['base_to_order_rate'];
         $cmsOrderPayments[] = $cmsOrderPayment;
-        
+
         return $cmsOrderPayments;
     }
 
@@ -655,14 +679,16 @@ class AtooSyncOrders
         $products = $order->getAllItems();
         $count = 1;
         foreach ($products as $product) {
+            $productData = $product->getData();
             // ne prends que les lignes sans parent (valorisées)
             if ((int)$product['parent_item_id'] == 0) {
+                $reference = customizeOrderProductReference($productData['order_id'], $productData['item_id']);
                 // si la clé Atoo-Sync est vide alors utilise la référence de la ligne de la commande
                 if (empty($reference)) {
                     $reference = $product['sku'];
                 }
                 try {
-                    $productBase = $productRepo->getById($product['product_id']);
+                    $productBase = $productRepo->getById($product['product_id'], false, 0);
                     $productBaseData = $productBase->getData();
                     // si pas de customisation alors essaye de trouver la référence depuis l'article ou la ligne de commande
                     if (empty($reference)) {
@@ -702,7 +728,7 @@ class AtooSyncOrders
                 $childproduct_id = (int)$connection->fetchOne($sql);
                 if ($childproduct_id > 0) {
                     try {
-                        $productchild = $productRepo->getById($childproduct_id);
+                        $productchild = $productRepo->getById($childproduct_id, false, 0);
                         $attribute_reference = $productchild->getSku();
                         $data = $productchild->getData();
                         $atoosync_gamme_key = $data['atoosync_gamme_key'];
@@ -780,7 +806,7 @@ class AtooSyncOrders
                 $cmsOrderProducts[] = $cmsOrderProduct;
             }
         }
-        
+
         return $cmsOrderProducts;
     }
 
@@ -861,8 +887,8 @@ class AtooSyncOrders
         $sql = "Update " . $orderTableName . " Set
                             `atoosync_transfered` = '1'
                             where `increment_id`= '" . (int)$id_order . "';";
-                           
-        $connection->query($sql); 
+
+        $connection->query($sql);
         return true;
     }
     /*
@@ -917,6 +943,10 @@ class AtooSyncOrders
    */
     private static function setOrderShippingNumber($id_order, $shipping_number)
     {
+        if (customizeSetOrderShippingNumber($id_order, $shipping_number)) {
+            return true;
+        }
+
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
         /** @var ResourceConnection $resource */
@@ -934,7 +964,7 @@ class AtooSyncOrders
             // Loop through order items
             foreach ($order->getAllItems() as $orderItem) {
                 // Check if order item has qty to ship or is virtual
-                if (! $orderItem->getQtyToShip() || $orderItem->getIsVirtual()) {
+                if (!$orderItem->getQtyToShip() || $orderItem->getIsVirtual()) {
                     continue;
                 }
                 $qtyShipped = $orderItem->getQtyToShip();
@@ -945,7 +975,12 @@ class AtooSyncOrders
             }
 
             // Register shipment
+            /** @var \Magento\Sales\Model\Order\Shipment $shipment */
             $shipment->register();
+
+            /** @var \Magento\Sales\Api\ShipmentRepositoryInterface $shipmentRepository */
+            $shipmentRepository = $objectManager->create('\Magento\Sales\Api\ShipmentRepositoryInterface');
+
             $data = [
                 'carrier_code' => $order->getShippingDescription(),
                 'title' => $order->getShippingMethod(),
@@ -953,14 +988,14 @@ class AtooSyncOrders
             ];
 
             $track = $trackfactory->create()->addData($data);
-            $shipment->addTrack($track)->save();
+            $shipment->addTrack($track);
+
             //$shipment->getOrder()->setIsInProcess(true);
             // Save created shipment and order
-            $shipment->save();
+            $shipmentRepository->save($shipment);
             $shipment->getOrder()->save();
             // Send email
             $objectManager->create('Magento\Shipping\Model\ShipmentNotifier')->notify($shipment);
-            $shipment->save();
         }
         $succes = 1;
 
@@ -1003,12 +1038,13 @@ class AtooSyncOrders
     {
         $xml = AtooSyncGesComTools::stripslashes($xml);
         $erpOrderDeliveriesXml = AtooSyncGesComTools::loadXML($xml);
+
         $erpOrderDeliveries = ErpOrderDeliveries ::createFromXML($erpOrderDeliveriesXml);
         if (empty($erpOrderDeliveries)) {
             return false;
         }
         // pas de customisation existante dans le fichier  customizable
-    
+
         customizeSetOrderDeliveries($erpOrderDeliveries);
         /** Par défaut cette foSetOrderShippingDetailsnction ne fait rien
          * car ce n'est pas gérée nativement par la boutique.
@@ -1016,7 +1052,7 @@ class AtooSyncOrders
 
         return true;
     }
-    
+
     /**
      * Enregistre la date de livraison du document
      *

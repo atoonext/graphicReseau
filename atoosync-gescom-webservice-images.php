@@ -60,6 +60,9 @@ class AtooSyncImages
         $success = 0;
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
+        /** @var \Magento\Store\Model\App\Emulation $emulation $emulation */
+        $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+        $emulation->startEnvironmentEmulation(0, 'adminhtml');
         /** @var ResourceConnection $resource */
         $resource = $objectManager->get(ResourceConnection::class);
         /** @var StoreManagerInterface $storeManager */
@@ -108,8 +111,8 @@ class AtooSyncImages
             
             /** @var ProductRepository $productRepository */
             $productRepository = $objectManager->get('Magento\Catalog\Model\ProductRepository');
-            $product= $productRepository->get($ErpProductImage->reference);
-            
+            $product= $productRepository->get($ErpProductImage->reference, false, 0);
+			
             if ($product) {
                 $product->getMediaGalleryImages()->clear();
                 /** @var Filesystem $filesystem */
@@ -156,8 +159,8 @@ class AtooSyncImages
                     $query = 'UPDATE ' . $catalog_product_entity_media_gallery . ' SET  `atoosync_image_id` = "' . $ErpProductImage->atoosync_key . '"WHERE  `value_id` = ' . $id_image;
                     $atoosync_key = $connection->query($query);
                     $success= 1;
-                    
-                    $product= $productRepository->get($ErpProductImage->reference);
+					
+                    $product= $productRepository->get($ErpProductImage->reference, false, 0);
                     $mediaGalleryEntriesTemp = [];
                     $i = 1;
                     foreach ($product->getMediaGalleryEntries() as $item) {
@@ -176,23 +179,26 @@ class AtooSyncImages
             return $success;
         }
     }
-    
+
     private static function productImageExist($reference, $atoosync_key)
     {
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
+        /** @var \Magento\Store\Model\App\Emulation $emulation $emulation */
+        $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+        $emulation->startEnvironmentEmulation(0, 'adminhtml');
         /** @var ResourceConnection $resource */
-        
+		
         $connection= $resource->getConnection();
         $tableName = $resource->getTableName('catalog_product_entity');
-        
+		
         $sql = "SELECT `entity_id` FROM " . $tableName . " WHERE `sku` = '" . AtooSyncGesComTools::pSQL((string)$reference) . "';";
         $product_id = (int)$connection->fetchOne($sql);
         if ($product_id != 0) {
             // instancie l'article
             $productRepo = $objectManager->create('Magento\Catalog\Model\ProductRepository');
-            $product = $productRepo->getById($product_id);
-            
+            $product = $productRepo->getById($product_id, false, 0);
+			
             // trouve l'image
             $tableName = $resource->getTableName('catalog_product_entity_media_gallery');
             $sql = "SELECT `value_id` FROM " . $tableName . " WHERE `atoosync_image_id` = '" . AtooSyncGesComTools::pSQL((string)$atoosync_key) . "';";
@@ -230,6 +236,9 @@ class AtooSyncImages
     {
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
+        /** @var \Magento\Store\Model\App\Emulation $emulation $emulation */
+        $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+        $emulation->startEnvironmentEmulation(0, 'adminhtml');
         /** @var ResourceConnection $resource */
         $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
         
@@ -242,8 +251,8 @@ class AtooSyncImages
             
             // instancie l'article
             $productRepo = $objectManager->create('Magento\Catalog\Model\ProductRepository');
-            $product = $productRepo->getById($product_id);
-            
+            $product = $productRepo->getById($product_id, false, 0);
+			
             $mediatype = 'image';
             $mediaEntries = $product->getMediaGalleryEntries();
             foreach ($mediaEntries as $image) {
@@ -260,6 +269,9 @@ class AtooSyncImages
         
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
+        /** @var \Magento\Store\Model\App\Emulation $emulation $emulation */
+        $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+        $emulation->startEnvironmentEmulation(0, 'adminhtml');
         /** @var ResourceConnection $resource */
         $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
         
@@ -292,6 +304,9 @@ class AtooSyncImages
     {
         /** @var ObjectManager $objectManager */
         $objectManager = ObjectManager::getInstance();
+        /** @var \Magento\Store\Model\App\Emulation $emulation $emulation */
+        $emulation = $objectManager->get('\Magento\Store\Model\App\Emulation');
+        $emulation->startEnvironmentEmulation(0, 'adminhtml');
         /** @var ResourceConnection $resource */
         $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
         

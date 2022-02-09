@@ -55,6 +55,20 @@ class AtooSyncCustomers
     private static function setCustomerAccountNumber($id_customer, $accountnumber)
     {
         $success = 0;
+        /** @var ObjectManager $objectManager */
+        $objectManager = ObjectManager::getInstance();
+        /** @var ResourceConnection $resource */
+        $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
+        /** @var StoreManagerInterface $storeManager */
+        $storeManager = $objectManager->get('\Magento\Store\Model\StoreManagerInterface');
+        /** @var ScopeConfigInterface $scopeConfig */
+        $scopeConfig = $objectManager->get('\Magento\Framework\App\Config\ScopeConfigInterface');
+        $connection= $resource->getConnection();
+        $tableName = $resource->getTableName('customer_entity');
+        
+        $customerQuery = 'UPDATE `'. $tableName .'`  SET `atoosync_account`="'.$accountnumber.'" WHERE entity_id = '.$id_customer;
+        $connection->query($customerQuery);
+        $success = true;
         return $success;
     }
 
@@ -423,7 +437,6 @@ class AtooSyncCustomers
         $objectManager = ObjectManager::getInstance();
         /** @var ResourceConnection $resource */
         $resource = $objectManager->get('Magento\Framework\App\ResourceConnection');
-        
         if (self::isAddressValid($ErpCustomerAddress)) {
             //je test si mon address exiset déjà
             $connection= $resource->getConnection();
